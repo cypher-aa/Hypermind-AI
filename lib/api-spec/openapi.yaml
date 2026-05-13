@@ -3,13 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: HyperMind AI API — multi-agent AI SaaS platform
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: gemini
+    description: Gemini AI chat and image operations
+  - name: agents
+    description: AI agent management
+  - name: memory
+    description: Persistent memory system
+  - name: templates
+    description: Prompt template library
+  - name: files
+    description: File upload and management
+  - name: dashboard
+    description: Dashboard summary and analytics
+
 paths:
   /healthz:
     get:
@@ -24,6 +39,525 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Auth ────────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRegistration"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserLogin"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/logout:
+    post:
+      operationId: logoutUser
+      tags: [auth]
+      summary: Logout current user
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  # ─── Gemini Conversations ─────────────────────────────────────────────────────
+  /gemini/conversations:
+    get:
+      operationId: listGeminiConversations
+      tags: [gemini]
+      summary: List all conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeminiConversation"
+    post:
+      operationId: createGeminiConversation
+      tags: [gemini]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeminiConversationInput"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversation"
+
+  /gemini/conversations/{id}:
+    get:
+      operationId: getGeminiConversation
+      tags: [gemini]
+      summary: Get conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiError"
+    delete:
+      operationId: deleteGeminiConversation
+      tags: [gemini]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiError"
+
+  /gemini/conversations/{id}/messages:
+    get:
+      operationId: listGeminiMessages
+      tags: [gemini]
+      summary: List messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeminiMessage"
+    post:
+      operationId: sendGeminiMessage
+      tags: [gemini]
+      summary: Send a message and receive an AI response (SSE stream)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeminiMessageInput"
+      responses:
+        "200":
+          description: SSE stream of assistant response chunks
+          content:
+            text/event-stream: {}
+
+  /gemini/generate-image:
+    post:
+      operationId: generateGeminiImage
+      tags: [gemini]
+      summary: Generate an image from a text prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeminiImageInput"
+      responses:
+        "200":
+          description: Generated image data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiImageOutput"
+
+  # ─── Agents ──────────────────────────────────────────────────────────────────
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: List all available AI agents
+      responses:
+        "200":
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+
+  /agents/{id}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get agent details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /agents/{id}/conversations:
+    get:
+      operationId: listAgentConversations
+      tags: [agents]
+      summary: List conversations for a specific agent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agent conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeminiConversation"
+
+  # ─── Memory ───────────────────────────────────────────────────────────────────
+  /memory:
+    get:
+      operationId: listMemories
+      tags: [memory]
+      summary: List all memory entries for the current user
+      responses:
+        "200":
+          description: Memory entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemoryEntry"
+    post:
+      operationId: createMemory
+      tags: [memory]
+      summary: Store a new memory entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryInput"
+      responses:
+        "201":
+          description: Memory created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryEntry"
+
+  /memory/{id}:
+    delete:
+      operationId: deleteMemory
+      tags: [memory]
+      summary: Delete a memory entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /memory/search:
+    get:
+      operationId: searchMemory
+      tags: [memory]
+      summary: Search memory entries by query
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching memory entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemoryEntry"
+
+  # ─── Templates ────────────────────────────────────────────────────────────────
+  /templates:
+    get:
+      operationId: listTemplates
+      tags: [templates]
+      summary: List all prompt templates
+      parameters:
+        - name: agentId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PromptTemplate"
+    post:
+      operationId: createTemplate
+      tags: [templates]
+      summary: Create a new prompt template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromptTemplateInput"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptTemplate"
+
+  /templates/{id}:
+    get:
+      operationId: getTemplate
+      tags: [templates]
+      summary: Get a specific prompt template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptTemplate"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteTemplate
+      tags: [templates]
+      summary: Delete a prompt template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Files ────────────────────────────────────────────────────────────────────
+  /files:
+    get:
+      operationId: listFiles
+      tags: [files]
+      summary: List uploaded files metadata
+      responses:
+        "200":
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UploadedFile"
+    post:
+      operationId: uploadFile
+      tags: [files]
+      summary: Upload a file and store its metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileUploadInput"
+      responses:
+        "201":
+          description: File metadata stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadedFile"
+
+  /files/{id}:
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      summary: Delete a file record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Dashboard ────────────────────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard summary statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent conversation activity
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +568,383 @@ components:
       required:
         - status
 
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    SuccessMessage:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    # ─── Auth ────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        username:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - username
+        - createdAt
+
+    UserRegistration:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          minLength: 2
+        password:
+          type: string
+          minLength: 8
+      required:
+        - email
+        - username
+        - password
+
+    UserLogin:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required:
+        - user
+        - token
+
+    # ─── Gemini ─────────────────────────────────────────────────────────────
+    GeminiConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        agentId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - createdAt
+
+    GeminiMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - createdAt
+
+    GeminiConversationInput:
+      type: object
+      properties:
+        title:
+          type: string
+        agentId:
+          type: string
+      required:
+        - title
+
+    GeminiMessageInput:
+      type: object
+      properties:
+        content:
+          type: string
+        agentId:
+          type: string
+      required:
+        - content
+
+    GeminiConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        agentId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeminiMessage"
+      required:
+        - id
+        - title
+        - createdAt
+        - messages
+
+    GeminiImageInput:
+      type: object
+      properties:
+        prompt:
+          type: string
+      required:
+        - prompt
+
+    GeminiImageOutput:
+      type: object
+      properties:
+        b64_json:
+          type: string
+        mimeType:
+          type: string
+      required:
+        - b64_json
+        - mimeType
+
+    GeminiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    # ─── Agents ──────────────────────────────────────────────────────────────
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        systemPrompt:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        conversationCount:
+          type: integer
+      required:
+        - id
+        - name
+        - description
+        - icon
+        - systemPrompt
+        - capabilities
+        - conversationCount
+
+    # ─── Memory ──────────────────────────────────────────────────────────────
+    MemoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        key:
+          type: string
+        value:
+          type: string
+        agentId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - key
+        - value
+        - createdAt
+
+    MemoryInput:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+        agentId:
+          type: string
+      required:
+        - key
+        - value
+
+    # ─── Templates ───────────────────────────────────────────────────────────
+    PromptTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        content:
+          type: string
+        agentId:
+          type: ["string", "null"]
+        category:
+          type: string
+        isBuiltin:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - content
+        - category
+        - isBuiltin
+        - createdAt
+
+    PromptTemplateInput:
+      type: object
+      properties:
+        name:
+          type: string
+        content:
+          type: string
+        agentId:
+          type: string
+        category:
+          type: string
+      required:
+        - name
+        - content
+        - category
+
+    # ─── Files ───────────────────────────────────────────────────────────────
+    UploadedFile:
+      type: object
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+        conversationId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - filename
+        - originalName
+        - mimeType
+        - size
+        - createdAt
+
+    FileUploadInput:
+      type: object
+      properties:
+        filename:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+        conversationId:
+          type: integer
+      required:
+        - filename
+        - originalName
+        - mimeType
+        - size
+
+    # ─── Dashboard ───────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      properties:
+        totalConversations:
+          type: integer
+        totalMessages:
+          type: integer
+        totalMemories:
+          type: integer
+        totalFiles:
+          type: integer
+        mostUsedAgent:
+          type: ["string", "null"]
+        messagesThisWeek:
+          type: integer
+      required:
+        - totalConversations
+        - totalMessages
+        - totalMemories
+        - totalFiles
+        - messagesThisWeek
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        agentId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - title
+        - description
+        - createdAt
