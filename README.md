@@ -111,6 +111,3 @@ agents/
 api/
 config/
 
-## Author
-
-Arfat Khan
